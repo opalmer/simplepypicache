@@ -165,13 +165,6 @@ def download_package(package):
     full_static_path = os.path.join(
         CACHED_PACKAGES, static_path[1:])
 
-    # file is fully downloaded, redirect so the web server
-    # will handle the request instead
-    if os.path.isfile(full_static_path):
-        logger.info(
-            "%s has already been cached, redirecting to static" % package)
-        return redirect(static_path)
-
     placeholder = os.path.join(
         CACHED_PACKAGES, os.path.basename(package) + ".download")
 
