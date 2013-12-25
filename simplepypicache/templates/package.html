@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Links for {{package}}</title>
+        <meta name="api-version" value="2" />
+    </head>
+<body>
+    <h1>Links for {{package}}</h1>
+
+    {% for typename, url, link_text in data %}
+        {% if typename == "internal" %}
+            <a href="/{{url}}" rel="{{typename}}">{{link_text}}</a><br />
+        {% elif typename %}
+            <a href="{{url}}" rel="{{typename}}">{{link_text}}</a><br />
+        {% else %}
+            <a href="{{url}}">{{link_text}}</a><br />
+        {% endif %}
+    {% endfor %}
+</body>
+</html>

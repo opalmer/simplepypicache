@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>PyPi - Cached Index</title>
+    </head>
+<body>
+    {% for package in package_names %}
+        <a href="/simple/{{package}}">{{package}}</a><br />
+    {% endfor %}
+</body>
+</html>
