@@ -38,9 +38,9 @@ from datetime import datetime, timedelta
 from distlib.locators import SimpleScrapingLocator
 from flask import Response, render_template, url_for, redirect
 
-PYPI_INDEX = os.environ["PYPI_INDEX"]
-CACHED_PACKAGES = os.environ["CACHED_PACKAGES"]
-CACHED_DISTS_FILES = os.environ["CACHED_DISTS_FILE"]
+PYPI_INDEX = os.environ["SCPYPI_INDEX"]
+CACHED_PACKAGES = os.environ["SCPYPI_ROOT"]
+CACHED_DISTS_FILES = os.environ.get("SCPYPI_DISTS_FILE")
 PYPI_ROOT = PYPI_INDEX.replace("/simple", "")
 SCRAPER = SimpleScrapingLocator(PYPI_INDEX)
 REGEX_URL = re.compile("^.*/(.+)#md5=([a-z0-9]{32})$")
@@ -74,18 +74,21 @@ class Index(object):
         load cached distributions from a file or write them out
         to $CACHED_DISTS_FILES
         """
-        if os.path.isfile(CACHED_DISTS_FILES):
+        if CACHED_DISTS_FILES is not None \
+                and os.path.isfile(CACHED_DISTS_FILES):
             with open(CACHED_DISTS_FILES, "r") as stream:
                 try:
                     return json.loads(stream.read().strip())
                 except ValueError:
                     os.remove(CACHED_DISTS_FILES)
 
+        logger.info("retrieving dists using the scraper")
         data = list(SCRAPER.get_distribution_names())
         data.sort()
 
-        with open(CACHED_DISTS_FILES, "w") as stream:
-            stream.write(json.dumps(data))
+        if CACHED_DISTS_FILES is not None:
+            with open(CACHED_DISTS_FILES, "w") as stream:
+                stream.write(json.dumps(data))
 
         return data
 
@@ -189,6 +192,7 @@ def download_package(package):
     # to do instead
     except urllib2.HTTPError, e:
         logger.error(str(e))
+        logger.debug("falling back on pypi url")
         return redirect(pypi_url)
 
     try:
@@ -226,5 +230,6 @@ def download_package(package):
         if os.path.isfile(placeholder):
             os.remove(placeholder)
 
+        logger.debug("falling back on pypi url")
         return redirect(pypi_url)
 

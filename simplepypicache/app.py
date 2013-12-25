@@ -32,6 +32,19 @@ import sys
 
 from flask import Flask
 
+assert "SCPYPI_ROOT" in os.environ
+assert "SCPYPI_INDEX" in os.environ
+
+SCPYPI_ROOT = os.environ["SCPYPI_ROOT"]
+SCPYPI_STATIC = os.environ.get(
+    "SCPYPI_STATIC", os.path.join(SCPYPI_ROOT, "static"))
+
+assert os.path.isdir(SCPYPI_ROOT), \
+    "%s is not a directory" % SCPYPI_ROOT
+
+assert os.path.isdir(SCPYPI_STATIC), \
+    "%s is not a directory" % SCPYPI_STATIC
+
 # logger setup
 logger = logging.getLogger("simplepypicache")
 logger_format = logging.Formatter(
@@ -41,19 +54,15 @@ handler.setFormatter(logger_format)
 logger.addHandler(handler)
 logger.setLevel(logging.DEBUG)
 
-SIMPLECACHE_ROOT = os.environ["SIMPLECACHE_ROOT"]
-SIMPLECACHE_DISTS_FILE = os.environ["SIMPLECACHE_DISTS_FILE"]
+from simplepypicache.server import (
+    Index, single_package_index, download_package)
 
-assert not os.path.isdir(SIMPLECACHE_ROOT), \
-    "%s is not a directory" % SIMPLECACHE_ROOT
-
-from simplepypicache.server import Index, single_package_index, download_package
-
-static_folder = os.path.join(SIMPLECACHE_ROOT, "static")
-
-app = Flask(__name__, static_folder=static_folder)
+app = Flask(__name__, static_folder=SCPYPI_STATIC)
 app.add_url_rule("/simple/", view_func=Index())
 app.add_url_rule("/simple/<string:package>/",
                  view_func=single_package_index)
 app.add_url_rule("/packages/<path:package>",
                  view_func=download_package)
+
+if __name__ == "__main__":
+    app.run()
