@@ -75,7 +75,8 @@ def main():
     os.environ["SCPYPI_DISTS_FILE"] = parsed.cached_dists_file or ""
     os.environ["SCPYPI_INDEX"] = parsed.pypi_index
     os.environ["SCPYPI_STATIC"] = os.environ.get(
-        "SCPYPI_STATIC", os.path.join(parsed.cached_packages, "static"))
+        "SCPYPI_STATIC",
+        os.path.join(parsed.cached_packages, "static", "packages"))
 
     from simplepypicache.logger import logger
     logger.setLevel(logging.getLevelName(

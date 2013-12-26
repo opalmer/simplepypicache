@@ -42,7 +42,7 @@ from simplepypicache.logger import logger
 PYPI_INDEX = os.environ["SCPYPI_INDEX"]
 CACHED_PACKAGES = os.environ["SCPYPI_ROOT"]
 STATIC_PACKAGES = os.environ.get(
-    "SCPYPI_STATIC", os.path.join(CACHED_PACKAGES, "static"))
+    "SCPYPI_STATIC", os.path.join(CACHED_PACKAGES, "static", "packages"))
 CACHED_DISTS_FILES = os.environ.get("SCPYPI_DISTS_FILE")
 PYPI_ROOT = PYPI_INDEX.replace("/simple", "")
 SCRAPER = SimpleScrapingLocator(PYPI_INDEX)
@@ -204,7 +204,7 @@ def download_package(package):
 
             logger.info("saved %s" % placeholder_file.name)
             full_static_path = os.path.join(
-                STATIC_PACKAGES, package)
+                STATIC_PACKAGES, "packages", package)
 
             # parent directory may need to be created
             dirname = os.path.dirname(full_static_path)
