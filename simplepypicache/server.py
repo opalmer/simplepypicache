@@ -47,6 +47,8 @@ CACHED_DISTS_FILES = os.environ.get("SCPYPI_DISTS_FILE")
 PYPI_ROOT = PYPI_INDEX.replace("/simple", "")
 SCRAPER = SimpleScrapingLocator(PYPI_INDEX)
 REGEX_URL = re.compile("^.*/(.+)#md5=([a-z0-9]{32})$")
+HOMEPAGE_URL_TYPES = {"homepage", "ext-homepage"}
+DOWNLOAD_URL_TYPES = {"download", "ext-download"}
 
 
 class Index(object):
@@ -130,17 +132,17 @@ def single_package_index(package):
                 url_type, remote_url, remote_url)] * len(project_versions))
 
         # direct links to a project's homepage(s)
-        elif url_type == "homepage":
+        elif url_type in HOMEPAGE_URL_TYPES:
             for version in project_versions:
                 homepages.append(
                     (url_type, remote_url, "%s home_page" % version))
 
         # direct remote download links
-        elif url_type == "download":
+        elif url_type in DOWNLOAD_URL_TYPES:
             for version in project_versions:
                 if version in remote_url:
                     downloads.append(
-                        (url_type, local_url, "%s download" % version))
+                        (url_type, local_url, "%s download_url" % version))
                     break
 
     # pass it all along to the template and have
