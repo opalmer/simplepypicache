@@ -23,8 +23,6 @@
 
 """Contains the command line entry point(s)."""
 
-import sys
-
 import argparse
 import logging
 import os
@@ -35,11 +33,23 @@ from flask import Flask
 DEFAULT_CACHE_DIR = os.path.join(tempfile.gettempdir(), "simplepypicache")
 
 
+def get_app(
+        static_folder, index_view, single_package_view, download_package_view):
+    app = Flask(__name__, static_folder=static_folder)
+    app.add_url_rule(
+        "/simple/", view_func=index_view)
+    app.add_url_rule(
+        "/simple/<string:package>/", view_func=single_package_view)
+    app.add_url_rule(
+        "/packages/<path:package>", view_func=download_package_view)
+    return app
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--cached-packages",
-        default=os.environ.get("CACHED_PACKAGES", DEFAULT_CACHE_DIR),
+        default=os.environ.get("SCPYPI_ROOT", DEFAULT_CACHE_DIR),
         help="Location where package files are cached")
     parser.add_argument(
         "--cached-dists-file",
@@ -61,29 +71,18 @@ def main():
     # set the environment variables so we can use them
     # elsewhere....it's a bit of a hack but does what we
     # need for now
-    os.environ["CACHED_PACKAGES"] = parsed.cached_packages
-    os.environ["CACHED_DISTS_FILE"] = parsed.cached_dists_file or ""
-    os.environ["PYPI_INDEX"] = parsed.pypi_index
+    os.environ["SCPYPI_ROOT"] = parsed.cached_packages
+    os.environ["SCPYPI_DISTS_FILE"] = parsed.cached_dists_file or ""
+    os.environ["SCPYPI_INDEX"] = parsed.pypi_index
+
+    from simplepypicache.logger import logger
+    logger.setLevel(logging.getLevelName(
+        os.environ.get("SCPYPI_LOG_LEVEL", logging.DEBUG)))
 
     from simplepypicache.server import (
         Index, single_package_index, download_package)
 
-    static_folder = os.path.join(os.environ["CACHED_PACKAGES"], "static")
-
-    app = Flask(__name__, static_folder=static_folder)
-    app.add_url_rule("/simple/", view_func=Index())
-    app.add_url_rule("/simple/<string:package>/",
-                     view_func=single_package_index)
-    app.add_url_rule("/packages/<path:package>",
-                     view_func=download_package)
-
-    # logger setup
-    logger = logging.getLogger("simplepypicache")
-    logger_format = logging.Formatter(
-        "%(asctime)-15s %(levelname)s %(message)s")
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(logger_format)
-    logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG)
-
+    app = get_app(
+        os.path.join(os.environ["SCPYPI_ROOT"], "static"),
+        Index(), single_package_index, download_package)
     app.run()
