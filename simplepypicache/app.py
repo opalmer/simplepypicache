@@ -28,9 +28,6 @@ have any command line options and relies on environment variables instead.
 
 import logging
 import os
-import sys
-
-from flask import Flask
 
 assert "SCPYPI_ROOT" in os.environ
 assert "SCPYPI_INDEX" in os.environ
@@ -45,24 +42,12 @@ assert os.path.isdir(SCPYPI_ROOT), \
 assert os.path.isdir(SCPYPI_STATIC), \
     "%s is not a directory" % SCPYPI_STATIC
 
-# logger setup
-logger = logging.getLogger("simplepypicache")
-logger_format = logging.Formatter(
-    "%(asctime)-15s %(levelname)s %(message)s")
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(logger_format)
-logger.addHandler(handler)
-logger.setLevel(logging.DEBUG)
+from simplepypicache.logger import logger
+logger.setLevel(logging.getLevelName(
+    os.environ.get("SCPYPI_LOG_LEVEL", logging.DEBUG)))
 
+from simplepypicache.util import get_app
 from simplepypicache.server import (
     Index, single_package_index, download_package)
 
-app = Flask(__name__, static_folder=SCPYPI_STATIC)
-app.add_url_rule("/simple/", view_func=Index())
-app.add_url_rule("/simple/<string:package>/",
-                 view_func=single_package_index)
-app.add_url_rule("/packages/<path:package>",
-                 view_func=download_package)
-
-if __name__ == "__main__":
-    app.run()
+app = get_app(SCPYPI_STATIC, Index(),single_package_index, download_package)

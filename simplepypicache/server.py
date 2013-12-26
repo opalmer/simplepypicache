@@ -27,7 +27,6 @@ web pages.
 """
 
 import json
-import logging
 import os
 import re
 import shutil
@@ -38,14 +37,14 @@ from datetime import datetime, timedelta
 from distlib.locators import SimpleScrapingLocator
 from flask import Response, render_template, url_for, redirect
 
+from simplepypicache.logger import logger
+
 PYPI_INDEX = os.environ["SCPYPI_INDEX"]
 CACHED_PACKAGES = os.environ["SCPYPI_ROOT"]
 CACHED_DISTS_FILES = os.environ.get("SCPYPI_DISTS_FILE")
 PYPI_ROOT = PYPI_INDEX.replace("/simple", "")
 SCRAPER = SimpleScrapingLocator(PYPI_INDEX)
 REGEX_URL = re.compile("^.*/(.+)#md5=([a-z0-9]{32})$")
-
-logger = logging.getLogger("simplepypicache")
 
 
 class Index(object):
