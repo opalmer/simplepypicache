@@ -42,6 +42,8 @@ assert os.path.isdir(SCPYPI_ROOT), \
 assert os.path.isdir(SCPYPI_STATIC), \
     "%s is not a directory" % SCPYPI_STATIC
 
+os.environ["SCPYPI_STATIC"] = SCPYPI_STATIC
+
 from simplepypicache.logger import logger
 logger.setLevel(logging.getLevelName(
     os.environ.get("SCPYPI_LOG_LEVEL", logging.DEBUG)))
@@ -50,4 +52,4 @@ from simplepypicache.util import get_app
 from simplepypicache.server import (
     Index, single_package_index, download_package)
 
-app = get_app(SCPYPI_STATIC, Index(),single_package_index, download_package)
+app = get_app(SCPYPI_STATIC, Index(), single_package_index, download_package)

@@ -35,12 +35,14 @@ from httplib import OK
 from datetime import datetime, timedelta
 
 from distlib.locators import SimpleScrapingLocator
-from flask import Response, render_template, url_for, redirect
+from flask import Response, render_template, redirect
 
 from simplepypicache.logger import logger
 
 PYPI_INDEX = os.environ["SCPYPI_INDEX"]
 CACHED_PACKAGES = os.environ["SCPYPI_ROOT"]
+STATIC_PACKAGES = os.environ.get(
+    "SCPYPI_STATIC", os.path.join(CACHED_PACKAGES, "static"))
 CACHED_DISTS_FILES = os.environ.get("SCPYPI_DISTS_FILE")
 PYPI_ROOT = PYPI_INDEX.replace("/simple", "")
 SCRAPER = SimpleScrapingLocator(PYPI_INDEX)
@@ -163,12 +165,8 @@ def download_package(package):
     * if the package is being downloaded, redirect to the remote url
     * if there are any error im the above process, redirect to the remote url
     """
-    static_path = url_for("static", filename=package)
-    full_static_path = os.path.join(
-        CACHED_PACKAGES, static_path[1:])
-
-    placeholder = os.path.join(
-        CACHED_PACKAGES, os.path.basename(package) + ".download")
+    filename = os.path.basename(package)
+    placeholder = os.path.join(CACHED_PACKAGES, filename + ".download")
 
     # the download placeholder file exists so for now
     # we just tell the request to come from the external url
@@ -205,6 +203,8 @@ def download_package(package):
                     yield data
 
             logger.info("saved %s" % placeholder_file.name)
+            full_static_path = os.path.join(
+                STATIC_PACKAGES, package)
 
             # parent directory may need to be created
             dirname = os.path.dirname(full_static_path)
