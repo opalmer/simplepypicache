@@ -21,12 +21,19 @@
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
 # THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+from os.path import join
 from distutils.core import setup
+
 
 setup(
     name="simplepypicache",
+    include_package_data=True,
     install_requires=["flask", "distlib"],
     packages=["simplepypicache"],
+    package_data={
+      "simplepypicache": [
+          join("templates", "simple.html"),
+          join("templates", "package.html")]},
     entry_points={
         "console_scripts": [
-            "simplepypicache = simplepypicache.scripts:main"]})
+            "simplepypicache = simplepypicache.util:main"]})
