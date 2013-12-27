@@ -28,7 +28,7 @@ from distutils.core import setup
 setup(
     name="simplepypicache",
     include_package_data=True,
-    install_requires=["distlib", "flask", "flask-cache"],
+    install_requires=["distlib", "flask", "flask-cache", "redis"],
     packages=["simplepypicache"],
     package_data={
       "simplepypicache": [
