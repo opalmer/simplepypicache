@@ -133,7 +133,7 @@ def single_package_index(package):
             for version in project_versions:
                 if version in remote_url:
                     downloads.append(
-                        (url_type, local_url, "%s download_url" % version))
+                        (url_type, remote_url, "%s download_url" % version))
                     break
 
     # pass it all along to the template and have
