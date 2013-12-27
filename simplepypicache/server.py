@@ -26,88 +26,58 @@ Main entry points which mimics behavior similar to PyPi's simple
 web pages.
 """
 
-import json
 import os
-import re
 import shutil
 import urllib2
 from httplib import OK
-from datetime import datetime, timedelta
+from urlparse import urlparse
 
 from distlib.locators import SimpleScrapingLocator
-from flask import Response, render_template, redirect
+from flask import Flask, Response, render_template, redirect
+from flask.ext.cache import Cache
 
 from simplepypicache.logger import logger
 
-PYPI_INDEX = os.environ["SCPYPI_INDEX"]
-CACHED_PACKAGES = os.environ["SCPYPI_ROOT"]
-STATIC_PACKAGES = os.environ.get(
-    "SCPYPI_STATIC", os.path.join(CACHED_PACKAGES, "static", "packages"))
-CACHED_DISTS_FILES = os.environ.get("SCPYPI_DISTS_FILE")
+PYPI_INDEX = os.environ.get("SCPYPI_INDEX", "https://pypi.python.org/simple/")
+SCPYPI_TEMP = os.environ.get("SCPYPI_TEMP")
+SCPYPI_STATIC = os.environ.get("SCPYPI_STATIC")
 PYPI_ROOT = PYPI_INDEX.replace("/simple", "")
-SCRAPER = SimpleScrapingLocator(PYPI_INDEX)
-REGEX_URL = re.compile("^.*/(.+)#md5=([a-z0-9]{32})$")
 HOMEPAGE_URL_TYPES = {"homepage", "ext-homepage"}
 DOWNLOAD_URL_TYPES = {"download", "ext-download"}
 
+if PYPI_INDEX.endswith("/"):
+    PYPI_INDEX = PYPI_INDEX[:-1]
 
-class Index(object):
-    """constructs ain index which mimics https://pypi.python.org/simple"""
-    __name__ = "index"
-    MAX_AGE = timedelta(days=1)
-
-    def __init__(self):
-        self._dists = None
-        self._dists = self.load_cached_dists()
-        self.last_hit = datetime.now()
-
-    @property
-    def dists(self):
-        """returns a list of all distributions"""
-        now = datetime.now()
-        if now - self.last_hit > self.MAX_AGE:
-            self._dists = list(SCRAPER.get_distribution_names())
-            self._dists.sort()
-
-        self.last_hit = datetime.now()
-        return self._dists
-
-    def load_cached_dists(self):
-        """
-        load cached distributions from a file or write them out
-        to $CACHED_DISTS_FILES
-        """
-        if CACHED_DISTS_FILES is not None \
-                and os.path.isfile(CACHED_DISTS_FILES):
-            with open(CACHED_DISTS_FILES, "r") as stream:
-                try:
-                    return json.loads(stream.read().strip())
-                except ValueError:
-                    os.remove(CACHED_DISTS_FILES)
-
-        logger.info("retrieving dists using the scraper")
-        data = list(SCRAPER.get_distribution_names())
-        data.sort()
-
-        if CACHED_DISTS_FILES is not None:
-            with open(CACHED_DISTS_FILES, "w") as stream:
-                stream.write(json.dumps(data))
-
-        return data
-
-    def __call__(self):
-        """renders the template which produces the index"""
-        return render_template("simple.html", package_names=self.dists)
+assert "SCPYPI_TEMP" in os.environ
+assert "SCPYPI_STATIC" in os.environ
+assert os.path.isdir(SCPYPI_TEMP)
+assert os.path.isdir(SCPYPI_STATIC)
 
 
+scraper = SimpleScrapingLocator(PYPI_INDEX)
+app = Flask(__name__)
+app.config["DEBUG"] = True
+app.config["CACHE_TYPE"] = "simple"
+cache = Cache(app)
+
+@app.route("/simple/")
+@cache.memoize(300)
+def index():
+    data = list(scraper.get_distribution_names())
+    data.sort()
+    return render_template("simple.html", package_names=data)
+
+
+@app.route("/simple/<string:package>/")
+@cache.memoize(120)
 def single_package_index(package):
     """returns the web page for individual package (ex. /simple/foo/)"""
-    remote_page = SCRAPER.get_page(PYPI_INDEX + package)
+    remote_page = scraper.get_page("/".join([PYPI_INDEX, package]))
 
     if remote_page is None:
         return "Not Found (%s does not have any releases)" % package
 
-    project = SCRAPER.get_project(package)
+    project = scraper.get_project(package)
     project_versions = project.keys()
     project_versions.sort(reverse=True)
 
@@ -119,12 +89,16 @@ def single_package_index(package):
 
     # scrape the remote index and retrieve all links
     for remote_url, url_type in remote_page.links:
-        local_url = remote_url.replace(PYPI_ROOT, "")
+        parsed_url = urlparse(remote_url)
+        local_url = parsed_url.path
 
         # internal links (packages hosted on PyPi [what we're caching])
         if url_type == "internal":
-            link_name, md5 = REGEX_URL.match(remote_url).groups()
-            internal_urls.insert(0, (url_type, local_url, link_name))
+            if parsed_url.fragment:
+                local_url += "#%s" % parsed_url.fragment
+
+            internal_urls.insert(
+                0, (url_type, local_url, parsed_url.path.split("/")[-1]))
 
         # unspecified url
         elif url_type == "":
@@ -154,6 +128,7 @@ def single_package_index(package):
         versions=project_versions)
 
 
+@app.route("/packages/<path:package>")
 def download_package(package):
     """
     This endpoint will either redirect to a remote url, a static file, or
@@ -167,57 +142,55 @@ def download_package(package):
     * if the package is being downloaded, redirect to the remote url
     * if there are any error im the above process, redirect to the remote url
     """
-    filename = os.path.basename(package)
-    placeholder = os.path.join(CACHED_PACKAGES, filename + ".download")
+    temp_placeholder = os.path.join(SCPYPI_TEMP, package) + ".download"
 
     # the download placeholder file exists so for now
     # we just tell the request to come from the external url
-    pypi_url = "/".join([PYPI_ROOT, "packages", package])
-    if os.path.isfile(placeholder):
+    remote_url = "/".join([PYPI_ROOT, "packages", package])
+    if os.path.isfile(temp_placeholder):
         logger.info("%s is being downloaded, redirecting to remote" % package)
-        return redirect(pypi_url)
+        return redirect(remote_url)
 
     # Not in progress or already downloaded?  Try to request the file
     # so we can download it.
     try:
-        download = urllib2.urlopen(pypi_url)
+        download = urllib2.urlopen(remote_url)
 
         if download.code != OK:
             raise urllib2.HTTPError(
-                pypi_url, download.code, "failed to connect",
+                remote_url, download.code, "failed to connect",
                 download.headers, download.fp)
 
     # on failure however, redirect instead so the client can choose what
     # to do instead
     except urllib2.HTTPError, e:
-        logger.error(str(e))
-        logger.debug("falling back on pypi url")
-        return redirect(pypi_url)
+        logger.error("falling back on pypi url %s" % e)
+        return redirect(remote_url)
 
     try:
         # download the file
         def download_data():
-            logger.debug("downloading %s" % pypi_url)
+            temp_dirname = os.path.dirname(temp_placeholder)
+            logger.debug("downloading %s to %s" % (remote_url, temp_dirname))
 
-            with open(placeholder, "wb") as placeholder_file:
+            if not os.path.isdir(temp_dirname):
+                os.makedirs(temp_dirname)
+
+            with open(temp_placeholder, "wb") as placeholder_file:
                 for data in download:
                     placeholder_file.write(data)
                     yield data
 
-            logger.info("saved %s" % placeholder_file.name)
-            full_static_path = os.path.join(
-                STATIC_PACKAGES, "packages", package)
+            static_path = os.path.join(SCPYPI_STATIC, "packages", package)
 
             # parent directory may need to be created
-            dirname = os.path.dirname(full_static_path)
-            if not os.path.isdir(dirname):
-                os.makedirs(dirname)
-                logger.debug("created %s" % dirname)
+            static_dirname = os.path.dirname(static_path)
+            if not os.path.isdir(static_dirname):
+                os.makedirs(static_dirname)
 
             # move temp file into a final location
-            shutil.move(placeholder_file.name, full_static_path)
-            logger.debug(
-                "moved %s -> %s" % (placeholder_file.name, full_static_path))
+            shutil.move(placeholder_file.name, static_path)
+            logger.info("saved %s" % static_path)
 
         # return streaming response with the file from the
         # remote server (this is also going to write the file locally)
@@ -228,9 +201,12 @@ def download_package(package):
     # something went wrong, redirect
     except Exception, e:
         logger.error(str(e))
-        if os.path.isfile(placeholder):
-            os.remove(placeholder)
+        if os.path.isfile(temp_placeholder):
+            os.remove(temp_placeholder)
 
         logger.debug("falling back on pypi url")
-        return redirect(pypi_url)
+        return redirect(remote_url)
 
+
+if __name__ == "__main__":
+    app.run()
