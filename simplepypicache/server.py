@@ -26,7 +26,9 @@ Main entry points which mimics behavior similar to PyPi's simple
 web pages.
 """
 
+import logging
 import os
+import sys
 import shutil
 import urllib2
 from httplib import OK
@@ -35,8 +37,6 @@ from urlparse import urlparse
 from distlib.locators import SimpleScrapingLocator
 from flask import Flask, Response, render_template, redirect
 from flask.ext.cache import Cache
-
-from simplepypicache.logger import logger
 
 PYPI_INDEX = os.environ.get("SCPYPI_INDEX", "https://pypi.python.org/simple/")
 SCPYPI_TEMP = os.environ.get("SCPYPI_TEMP")
@@ -53,12 +53,27 @@ assert "SCPYPI_STATIC" in os.environ
 assert os.path.isdir(SCPYPI_TEMP)
 assert os.path.isdir(SCPYPI_STATIC)
 
+# logger setup
+logger = logging.getLogger("simplepypicache")
+logger_format = logging.Formatter(
+    "%(asctime)-15s %(levelname)s %(message)s")
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logger_format)
+logger.addHandler(handler)
+logger.setLevel(logging.getLevelName(
+    os.environ.get("SCPYPI_LOG_LEVEL", "DEBUG")))
 
 scraper = SimpleScrapingLocator(PYPI_INDEX)
 app = Flask(__name__)
 app.config["DEBUG"] = True
-app.config["CACHE_TYPE"] = "simple"
+app.config["CACHE_TYPE"] = os.environ.get("CACHE_TYPE", "simple")
+
+if app.config["CACHE_TYPE"] == "redis":
+    assert "CACHE_REDIS_URL" in os.environ
+    app.config["CACHE_REDIS_URL"] = os.environ["CACHE_REDIS_URL"]
+
 cache = Cache(app)
+
 
 @app.route("/simple/")
 @cache.memoize(300)
