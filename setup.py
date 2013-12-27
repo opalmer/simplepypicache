@@ -28,12 +28,9 @@ from distutils.core import setup
 setup(
     name="simplepypicache",
     include_package_data=True,
-    install_requires=["flask", "distlib"],
+    install_requires=["distlib", "flask", "flask-cache"],
     packages=["simplepypicache"],
     package_data={
       "simplepypicache": [
           join("templates", "simple.html"),
-          join("templates", "package.html")]},
-    entry_points={
-        "console_scripts": [
-            "simplepypicache = simplepypicache.util:main"]})
+          join("templates", "package.html")]})
