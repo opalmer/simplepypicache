@@ -67,6 +67,8 @@ scraper = SimpleScrapingLocator(PYPI_INDEX)
 app = Flask(__name__)
 app.config["DEBUG"] = True
 app.config["CACHE_TYPE"] = os.environ.get("CACHE_TYPE", "simple")
+app.config["CACHE_KEY_PREFIX"] = os.environ.get(
+    "CACHE_KEY_PREFIX", "scpypi_")
 
 if app.config["CACHE_TYPE"] == "redis":
     assert "CACHE_REDIS_URL" in os.environ
