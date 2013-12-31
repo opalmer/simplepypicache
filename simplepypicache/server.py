@@ -131,16 +131,14 @@ def single_package_index(package):
         # direct remote download links
         elif url_type in DOWNLOAD_URL_TYPES:
             for version in project_versions:
-                if version in remote_url:
-                    downloads.append(
-                        (url_type, remote_url, "%s download_url" % version))
-                    break
+                downloads.append(
+                    (url_type, remote_url, "%s download_url" % version))
 
     # pass it all along to the template and have
     # it render the page
     return render_template(
         "package.html",
-        data=internal_urls + basic_links + homepages + downloads,
+        data=internal_urls + downloads + basic_links + homepages,
         package=package,
         versions=project_versions)
 
